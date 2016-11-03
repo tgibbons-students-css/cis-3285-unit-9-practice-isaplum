@@ -51,36 +51,49 @@ namespace SingleResponsibilityPrinciple
         {
             if (fields.Length != 3)
             {
-                LogMessage("WARN: Line {0} malformed. Only {1} field(s) found.", currentLine, fields.Length);
+                LogMessage("WARN", "Line {0} malformed. Only {1} field(s) found.", currentLine, fields.Length);
                 return false;
             }
 
             if (fields[0].Length != 6)
             {
-                LogMessage("WARN: Trade currencies on line {0} malformed: '{1}'", currentLine, fields[0]);
+                LogMessage("WARN", "Trade currencies on line {0} malformed: '{1}'", currentLine, fields[0]);
                 return false;
             }
 
             int tradeAmount;
             if (!int.TryParse(fields[1], out tradeAmount))
             {
-                LogMessage("WARN: Trade amount on line {0} not a valid integer: '{1}'", currentLine, fields[1]);
+                LogMessage("WARN", "Trade amount on line {0} not a valid integer: '{1}'", currentLine, fields[1]);
                 return false;
             }
 
             decimal tradePrice;
             if (!decimal.TryParse(fields[2], out tradePrice))
             {
-                LogMessage("WARN: Trade price on line {0} not a valid decimal: '{1}'", currentLine, fields[2]);
+                LogMessage("WARN", "Trade price on line {0} not a valid decimal: '{1}'", currentLine, fields[2]);
+                return false;
+            }
+            if (tradeAmount > 100000)
+            {
+                LogMessage("WARN", "Trade price on line {0} not a valid decimal: '{1}'", currentLine, fields.Length);
+                return false;
+            }
+            if (tradeAmount < 1000)
+            {
+                LogMessage("WARN", "Trade price on line {0} not a valid decimal: '{1}'", currentLine, fields.Length);
                 return false;
             }
 
             return true;
         }
 
-        private void LogMessage(string message, params object[] args)
+        private void LogMessage(string msgType, string message, params object[] args)
         {
-            Console.WriteLine(message, args);
+            using (StreamWriter logfile = File.AppendText("log.xml"))
+            {
+                logfile.WriteLine(" " + message + " ", args);
+            }
         }
 
         private TradeRecord MapTradeDataToTradeRecord(string[] fields)
@@ -103,7 +116,7 @@ namespace SingleResponsibilityPrinciple
 
         private void StoreTrades(IEnumerable<TradeRecord> trades)
         {
-            LogMessage("INFO: Connecting to Database");
+            LogMessage("INFO", "Connecting to Database");
             using (var connection = new System.Data.SqlClient.SqlConnection(@"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=|DataDirectory|\tradedatabase.mdf;Integrated Security=True;Connect Timeout=30;"))
             {
                 connection.Open();
@@ -128,12 +141,27 @@ namespace SingleResponsibilityPrinciple
                 connection.Close();
             }
 
-            LogMessage("INFO: {0} trades processed", trades.Count());
+            LogMessage("INFO", "{0} trades processed", trades.Count());
+        }
+
+        private IEnumerable<string> ReadURLTradeData(string url) {
+            var tradeData = new List();
+            var client = new WebClient();
+            using (var stream = client.OpenRead(url))
+            using (var reader = new StreamReader(stream))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    tradeData.Add(line);
+                }
+            }
+            return tradeData;
         }
 
         public void ProcessTrades(Stream stream)
         {
-            var lines = ReadTradeData(stream);
+            var lines = ReadURLTradeData(url);
             var trades = ParseTrades(lines);
             StoreTrades(trades);
         }
