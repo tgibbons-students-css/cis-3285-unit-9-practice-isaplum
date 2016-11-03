@@ -145,7 +145,8 @@ namespace SingleResponsibilityPrinciple
         }
 
         private IEnumerable<string> ReadURLTradeData(string url) {
-            var tradeData = new List();
+            var tradeData = new List<string>();
+
             var client = new WebClient();
             using (var stream = client.OpenRead(url))
             using (var reader = new StreamReader(stream))
